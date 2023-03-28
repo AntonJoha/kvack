@@ -1,5 +1,7 @@
 use super::position::Position;
-
+use std::sync::{Arc, Mutex};
+use std::fs::File;
+use std::io::{Write, stdout, stdin};
 
 ///This is the object which holds the line data
 ///It is a vector of chars in order to add into any position
@@ -85,6 +87,24 @@ impl FileObject {
     }
  
 
+    ///Save the file to path
+    pub fn save(&self) {
+        let mut file = File::create(&self.path).unwrap();
+        //Want to write all but the last one with a newline
+        for line in &self.lines[..self.lines.len() - 1] {
+            let text = line.text.iter();
+            for c in text {
+                file.write_all(&[*c as u8]).unwrap();
+            }
+            file.write_all(b"\n").unwrap();
+        }
+        //Write the last line without a newline
+        let text = self.lines[self.lines.len() - 1].text.iter();
+        for c in text {
+            file.write_all(&[*c as u8]).unwrap();
+        }
+    }
+
     ///This is the function which is called to move the cursor to different positions in the file.
     ///It takes two arguments, x and y, which are the amount of characters to move the cursor in the x and y direction.
     ///It returns a Position struct which contains the new x and y coordinates of the cursor.
@@ -116,5 +136,52 @@ impl FileObject {
         self.get_cords()
     }
 
+}
+
+
+pub struct Files {
+    files: Vec<Arc<Mutex<FileObject>>>,
+    current_file: u16,
+}
+
+impl Files {
+
+    pub fn new() -> Files {
+        Files { files: Vec::new(), current_file: 0 }
+    }
+
+    ///Call this to get the current file that the user is editing
+    pub fn get_current_file(&mut self) -> Arc<Mutex<FileObject>> {
+        //If it requests a file which does not exist return a bogus one
+        if self.files.len() == 0 {
+            return Arc::new(Mutex::new(FileObject::new("".to_string())));
+        }
+        self.files[self.current_file as usize].clone()
+    }
+    
+    ///Call this to add a new file to the list of files. 
+    pub fn push(&mut self, file: FileObject) {
+        self.files.push(Arc::new(Mutex::new(file)));
+    }
+
+    ///Call this to close the current file.
+    ///Warning, will erase all unsaved data.
+    pub fn close_current(&mut self) {
+        self.files.remove(self.current_file as usize);
+        if self.current_file > 0 {
+            self.current_file -= 1;
+        }
+    }
+
+    ///Call this to save the current file to its path.
+    pub fn save_current(&mut self) {
+        self.files[self.current_file as usize].lock().unwrap().save();
+    }
+    
+
+    ///Call this to get the amount of files open at the same time. 
+    pub fn len(&self) -> u16 {
+        self.files.len() as u16
+    }
 }
 
