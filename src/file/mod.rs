@@ -187,7 +187,6 @@ impl Files {
     pub fn save_current(&mut self) {
         self.tx.send(Box::new(operations::Save{})).unwrap();
     }
-    
 
     ///Call this to get the amount of files open at the same time. 
     pub fn len(&self) -> u16 {

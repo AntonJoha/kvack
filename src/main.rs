@@ -50,8 +50,8 @@ pub fn init() {
             Ok(key) => {
                 match files.lock() {
                     Ok(mut f) => {
-                        pos = handle_keypress(&mut f, pos, key);
-                        display::draw(&mut f.get_current_file().lock().unwrap(), &mut stdout, &pos);
+                        handle_keypress(&mut f, key);
+                        display::draw(&mut f.get_current_file().lock().unwrap(), &mut stdout);
                     }
                     Err(e) => println!("Error: {}", e),
                 }
@@ -67,33 +67,32 @@ pub fn init() {
     }
 }
 
-pub fn handle_keypress(files: &mut Files, pos: Position, keypress: Key) -> Position{
+pub fn handle_keypress(files: &mut Files, keypress: Key) {
 
     let file = files.get_current_file();
     let mut f = file.lock().unwrap();
 
     match keypress {
         Key::Char(c) => {
-            f.add_char(c)
+            f.add_char(c);
         }
         Key::Ctrl('c') => {
             files.save_current();
             files.close_current();
-            pos
         }
         Key::Up => {
-            f.move_cursor(0, -1)
+            f.move_cursor(0, -1);
         },
         Key::Down => {
-            f.move_cursor(0, 1)
+            f.move_cursor(0, 1);
         },
         Key::Left => {
-            f.move_cursor(-1, 0)
+            f.move_cursor(-1, 0);
         },
         Key::Right => {
-            f.move_cursor(1, 0)
+            f.move_cursor(1, 0);
         },
-        _ => pos
+        _ => ()
     }
 }
 
