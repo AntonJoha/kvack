@@ -1,7 +1,12 @@
 use super::position::Position;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc::channel, mpsc::Sender, mpsc::Receiver};
 use std::fs::File;
 use std::io::{Write, stdout, stdin};
+use std::collections::VecDeque;
+use std::thread;
+
+use operations::Operation;
+mod operations;
 
 ///This is the object which holds the line data
 ///It is a vector of chars in order to add into any position
@@ -30,7 +35,7 @@ pub struct FileObject {
     position: Position,
 }
 
-
+///This is the object which holds a file
 impl FileObject {
     pub fn new(path: String) -> FileObject {
         let mut lines = Vec::new();
@@ -142,12 +147,13 @@ impl FileObject {
 pub struct Files {
     files: Vec<Arc<Mutex<FileObject>>>,
     current_file: u16,
+    tx: std::sync::mpsc::Sender<Box<dyn Operation + Send>>,
 }
 
 impl Files {
 
-    pub fn new() -> Files {
-        Files { files: Vec::new(), current_file: 0 }
+    pub fn new(tx: Sender<Box<dyn Operation + Send>>) -> Files {
+        Files { files: Vec::new(), current_file: 0, tx}
     }
 
     ///Call this to get the current file that the user is editing
@@ -167,6 +173,10 @@ impl Files {
     ///Call this to close the current file.
     ///Warning, will erase all unsaved data.
     pub fn close_current(&mut self) {
+        self.tx.send(Box::new(operations::Close{})).unwrap();
+    }
+
+    pub fn close(&mut self) {
         self.files.remove(self.current_file as usize);
         if self.current_file > 0 {
             self.current_file -= 1;
@@ -175,7 +185,7 @@ impl Files {
 
     ///Call this to save the current file to its path.
     pub fn save_current(&mut self) {
-        self.files[self.current_file as usize].lock().unwrap().save();
+        self.tx.send(Box::new(operations::Save{})).unwrap();
     }
     
 
@@ -183,5 +193,18 @@ impl Files {
     pub fn len(&self) -> u16 {
         self.files.len() as u16
     }
+}
+
+pub fn init_files() -> Arc<Mutex<Files>> {
+    let (tx, rx): (Sender<Box<dyn Operation + Send>>, Receiver<Box<dyn Operation + Send>>) = std::sync::mpsc::channel();
+    let files = Arc::new(Mutex::new(Files::new(tx)));
+    let files_clone = files.clone();
+    std::thread::spawn(move || {
+        loop {
+            let op = rx.recv().unwrap();
+            op.execute(&mut files_clone.clone().lock().unwrap());
+        }
+    });
+    files
 }
 
