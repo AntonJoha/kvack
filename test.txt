@@ -1,2 +1,3 @@
-aabb
-ccdd
+aa
+bbdd
+cc
